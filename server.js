@@ -124,6 +124,7 @@ app.post("/api/google-login", async (req, res) => {
 
         if (!user) {
             user = new User({
+                name: `${profile.given_name} ${profile.family_name}`,  // 🔹 Fix: Adding name
                 firstName: profile.given_name,
                 lastName: profile.family_name,
                 email: profile.email,
