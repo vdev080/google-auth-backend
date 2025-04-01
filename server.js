@@ -25,10 +25,13 @@ mongoose.connect(process.env.MONGO_URI, {
 // 🔹 User Schema & Model
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
+    firstName: { type: String },
+    lastName: { type: String },
     username: { type: String, unique: true, sparse: true },
     email: { type: String, required: true, unique: true },
     password: { type: String },
-    googleId: { type: String, unique: true, sparse: true }
+    googleId: { type: String, unique: true, sparse: true },
+    profileImage: { type: String }
 });
 
 const User = mongoose.model("User", userSchema, "user_details");
@@ -116,18 +119,26 @@ app.post("/api/google-login", async (req, res) => {
             audience: process.env.GOOGLE_CLIENT_ID
         });
 
-        const { name, email, sub: googleId } = ticket.getPayload();
-        let user = await User.findOne({ email });
+        const profile = ticket.getPayload();
+        let user = await User.findOne({ email: profile.email });
 
         if (!user) {
-            user = new User({ name, email, googleId });
+            user = new User({
+                firstName: profile.given_name,
+                lastName: profile.family_name,
+                email: profile.email,
+                username: profile.email || `user_${Date.now()}`,  // Ensure username is never null
+                profileImage: profile.picture,
+                googleId: profile.sub
+            });
+
             await user.save();
         }
 
         // Generate JWT Token
         const jwtToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-        res.json({ message: "✅ Google login successful!", token: jwtToken, user: { id: user._id, name: user.name, email: user.email } });
+        res.json({ message: "✅ Google login successful!", token: jwtToken, user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email, profileImage: user.profileImage } });
     } catch (error) {
         console.error("❌ Google login failed:", error);
         res.status(500).json({ error: "Google login failed!" });
